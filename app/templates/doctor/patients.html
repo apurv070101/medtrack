@@ -4,36 +4,43 @@
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <div>
-        <h2 class="fw-bold mb-1"><i class="fas fa-users text-primary me-2"></i>Assigned Patients</h2>
-        <p class="text-secondary mb-0">Cohort of patients who have consulted with you</p>
-    </div>
+    <h2><i class="fas fa-users me-2"></i>My Patients</h2>
 </div>
 
-<div class="card shadow-sm">
-    <div class="card-body p-0">
+<div class="card">
+    <div class="card-body">
         {% if patients %}
         <div class="table-responsive">
-            <table class="table table-simple">
+            <table class="table table-hover">
                 <thead>
                     <tr>
-                        <th>Patient Name</th>
+                        <th>Patient</th>
                         <th>Age</th>
                         <th>Email</th>
                         <th>Phone</th>
-                        <th class="text-end">Actions</th>
+                        <th>Last Visit</th>
+                        <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {% for p in patients %}
+                    {% for pat_profile in patients %}
                     <tr>
-                        <td class="fw-semibold">{{ p.user.Name }}</td>
-                        <td>{{ p.Age ~ ' yrs' if p.Age else 'N/A' }}</td>
-                        <td>{{ p.user.Email }}</td>
-                        <td>{{ p.user.Phone or 'N/A' }}</td>
-                        <td class="text-end">
-                            <a href="{{ url_for('doctor.patient_history', patient_id=p.PatientID) }}" class="btn btn-sm btn-outline-primary">
-                                <i class="fas fa-file-medical me-1"></i>View Full History
+                        <td>{{ pat_profile.user.Name }}</td>
+                        <td>{{ pat_profile.Age }}</td>
+                        <td>{{ pat_profile.user.Email }}</td>
+                        <td>{{ pat_profile.user.Phone or 'N/A' }}</td>
+                        <td>
+                            {% set apts = appointment_model.get_by_patient(pat_profile.PatientID) %}
+                            {% set doc_apts = apts|selectattr('DoctorID', 'equalto', doctor.DoctorID)|list %}
+                            {% if doc_apts %}
+                                {{ format_date(doc_apts[0].Date) }}
+                            {% else %}
+                                N/A
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="{{ url_for('doctor.patient_history', patient_id=pat_profile.PatientID) }}" class="btn btn-sm btn-outline-primary">
+                                <i class="fas fa-file-medical me-1"></i>View History
                             </a>
                         </td>
                     </tr>
@@ -43,9 +50,9 @@
         </div>
         {% else %}
         <div class="text-center py-5">
-            <i class="fas fa-users-slash text-secondary fs-1 mb-2"></i>
-            <h5 class="fw-bold text-dark">No Patients Assigned</h5>
-            <p class="text-secondary mb-0">Patients will appear here once they book appointments with you.</p>
+            <i class="fas fa-users fa-4x text-muted mb-3"></i>
+            <h4>No Patients Yet</h4>
+            <p class="text-muted">Patients will appear here after they book appointments with you.</p>
         </div>
         {% endif %}
     </div>

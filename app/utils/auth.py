@@ -15,15 +15,9 @@ def verify_password(password: str, password_hash: str) -> bool:
 def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        user_id = session.get('user_id')
-        if not user_id:
+        if 'user_id' not in session:
             flash('Please log in to access this page.', 'warning')
             return redirect(url_for('auth.login', next=request.url))
-        user = user_model.get_by_id(user_id)
-        if not user:
-            session.clear()
-            flash('Your session has expired. Please log in again.', 'warning')
-            return redirect(url_for('auth.login'))
         return f(*args, **kwargs)
     return decorated_function
 
@@ -32,16 +26,10 @@ def role_required(*roles):
     def decorator(f):
         @wraps(f)
         def decorated_function(*args, **kwargs):
-            user_id = session.get('user_id')
-            if not user_id:
+            if 'user_id' not in session:
                 flash('Please log in to access this page.', 'warning')
                 return redirect(url_for('auth.login', next=request.url))
-            user = user_model.get_by_id(user_id)
-            if not user:
-                session.clear()
-                flash('Your session has expired. Please log in again.', 'warning')
-                return redirect(url_for('auth.login'))
-            if session.get('role') not in roles or user.get('Role') not in roles:
+            if session.get('role') not in roles:
                 flash('You do not have permission to access this page.', 'danger')
                 return redirect(url_for('auth.dashboard'))
             return f(*args, **kwargs)
@@ -66,11 +54,11 @@ def get_current_user() -> dict:
         return None
     user = user_model.get_by_id(session['user_id'])
     if user:
-        if session.get('role') == 'Doctor' or user.get('Role') == 'Doctor':
+        if session.get('role') == 'Doctor':
             doctor = doctor_model.get_by_user_id(user['UserID'])
             if doctor:
                 user['doctor_profile'] = doctor
-        elif session.get('role') == 'Patient' or user.get('Role') == 'Patient':
+        elif session.get('role') == 'Patient':
             patient = patient_model.get_by_user_id(user['UserID'])
             if patient:
                 user['patient_profile'] = patient

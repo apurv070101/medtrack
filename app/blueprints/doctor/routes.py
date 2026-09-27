@@ -5,7 +5,7 @@ from app.models import (
     diagnosis_model, notification_model
 )
 from app.utils.auth import login_required, doctor_required, get_current_user
-from app.utils.helpers import format_date, format_time, paginate_items, generate_time_slots
+from app.utils.helpers import format_date, format_time, paginate_items
 from app.services.sns import sns_service
 
 doctor_bp = Blueprint('doctor', __name__, url_prefix='/doctor')
@@ -16,21 +16,16 @@ doctor_bp = Blueprint('doctor', __name__, url_prefix='/doctor')
 @doctor_required
 def dashboard():
     user = get_current_user()
-    if not user:
-        session.clear()
-        return redirect(url_for('auth.login'))
-
     doctor = user.get('doctor_profile')
     appointments = []
-    today_appointments = []
-    upcoming = []
     notifications = []
 
     if doctor:
         appointments = appointment_model.get_by_doctor(doctor['DoctorID'])
-        today_appointments = [a for a in appointments if a.get('Date') == datetime.now().strftime('%Y-%m-%d')]
-        upcoming = [a for a in appointments if a.get('Date', '') >= datetime.now().strftime('%Y-%m-%d') and a.get('Status') in ['Pending', 'Confirmed']]
-        upcoming.sort(key=lambda x: (x.get('Date', ''), x.get('Time', '')))
+        today = format_date(datetime.now().strftime('%Y-%m-%d'))
+        today_appointments = [a for a in appointments if a['Date'] == datetime.now().strftime('%Y-%m-%d')]
+        upcoming = [a for a in appointments if a['Date'] >= datetime.now().strftime('%Y-%m-%d') and a['Status'] in ['Pending', 'Confirmed']]
+        upcoming.sort(key=lambda x: (x['Date'], x['Time']))
         notifications = notification_model.get_by_user(user['UserID'], limit=5)
 
     return render_template('doctor/dashboard.html',
@@ -48,10 +43,6 @@ def dashboard():
 @doctor_required
 def appointments():
     user = get_current_user()
-    if not user:
-        session.clear()
-        return redirect(url_for('auth.login'))
-
     doctor = user.get('doctor_profile')
     page = request.args.get('page', 1, type=int)
     status_filter = request.args.get('status', '')
@@ -60,8 +51,8 @@ def appointments():
     if doctor:
         all_appointments = appointment_model.get_by_doctor(doctor['DoctorID'])
         if status_filter:
-            all_appointments = [a for a in all_appointments if a.get('Status') == status_filter]
-        all_appointments.sort(key=lambda x: (x.get('Date', ''), x.get('Time', '')), reverse=True)
+            all_appointments = [a for a in all_appointments if a['Status'] == status_filter]
+        all_appointments.sort(key=lambda x: (x['Date'], x['Time']), reverse=True)
 
     pagination = paginate_items(all_appointments, page)
 
@@ -80,18 +71,14 @@ def appointments():
 @doctor_required
 def appointment_detail(appointment_id):
     user = get_current_user()
-    if not user:
-        session.clear()
-        return redirect(url_for('auth.login'))
-
     doctor = user.get('doctor_profile')
     appointment = appointment_model.get_by_id(appointment_id)
 
-    if not appointment or not doctor or appointment.get('DoctorID') != doctor['DoctorID']:
+    if not appointment or appointment['DoctorID'] != doctor['DoctorID']:
         flash('Appointment not found', 'danger')
         return redirect(url_for('doctor.appointments'))
 
-    patient = patient_model.get_by_id(appointment.get('PatientID'))
+    patient = patient_model.get_by_id(appointment['PatientID'])
     patient_user = user_model.get_by_id(patient['UserID']) if patient else None
     diagnosis = diagnosis_model.get_by_appointment(appointment_id)
 
@@ -111,10 +98,10 @@ def appointment_detail(appointment_id):
 @doctor_required
 def update_appointment_status(appointment_id):
     user = get_current_user()
-    doctor = user.get('doctor_profile') if user else None
+    doctor = user.get('doctor_profile')
     appointment = appointment_model.get_by_id(appointment_id)
 
-    if not appointment or not doctor or appointment.get('DoctorID') != doctor['DoctorID']:
+    if not appointment or appointment['DoctorID'] != doctor['DoctorID']:
         flash('Appointment not found', 'danger')
         return redirect(url_for('doctor.appointments'))
 
@@ -125,23 +112,22 @@ def update_appointment_status(appointment_id):
 
     appointment_model.update_status(appointment_id, new_status)
 
-    patient = patient_model.get_by_id(appointment.get('PatientID'))
+    patient = patient_model.get_by_id(appointment['PatientID'])
     patient_user = user_model.get_by_id(patient['UserID']) if patient else None
     doctor_user = user_model.get_by_id(doctor['UserID'])
 
-    if patient_user:
-        if new_status == 'Confirmed':
-            sns_service.send_appointment_notification(
-                patient_user['Email'], patient_user.get('Phone', ''),
-                {'doctor_name': doctor_user['Name'], 'date': appointment['Date'], 'time': appointment['Time'], 'status': 'Confirmed'},
-                'confirmation'
-            )
-        elif new_status == 'Cancelled':
-            sns_service.send_appointment_notification(
-                patient_user['Email'], patient_user.get('Phone', ''),
-                {'doctor_name': doctor_user['Name'], 'date': appointment['Date'], 'time': appointment['Time'], 'status': 'Cancelled'},
-                'cancellation'
-            )
+    if new_status == 'Confirmed':
+        sns_service.send_appointment_notification(
+            patient_user['Email'], patient_user.get('Phone', ''),
+            {'doctor_name': doctor_user['Name'], 'date': appointment['Date'], 'time': appointment['Time'], 'status': 'Confirmed'},
+            'confirmation'
+        )
+    elif new_status == 'Cancelled':
+        sns_service.send_appointment_notification(
+            patient_user['Email'], patient_user.get('Phone', ''),
+            {'doctor_name': doctor_user['Name'], 'date': appointment['Date'], 'time': appointment['Time'], 'status': 'Cancelled'},
+            'cancellation'
+        )
 
     flash(f'Appointment status updated to {new_status}', 'success')
     return redirect(url_for('doctor.appointment_detail', appointment_id=appointment_id))
@@ -152,22 +138,28 @@ def update_appointment_status(appointment_id):
 @doctor_required
 def create_diagnosis(appointment_id):
     user = get_current_user()
-    if not user:
-        session.clear()
-        return redirect(url_for('auth.login'))
-
     doctor = user.get('doctor_profile')
     appointment = appointment_model.get_by_id(appointment_id)
 
-    if not appointment or not doctor or appointment.get('DoctorID') != doctor['DoctorID']:
+    if not appointment or appointment['DoctorID'] != doctor['DoctorID']:
         flash('Appointment not found', 'danger')
         return redirect(url_for('doctor.appointments'))
 
-    patient = patient_model.get_by_id(appointment.get('PatientID'))
+    if appointment['Status'] != 'Completed':
+        flash('Can only add diagnosis for completed appointments', 'warning')
+        return redirect(url_for('doctor.appointment_detail', appointment_id=appointment_id))
+
+    existing_diagnosis = diagnosis_model.get_by_appointment(appointment_id)
+    if existing_diagnosis:
+        flash('Diagnosis already exists for this appointment', 'warning')
+        return redirect(url_for('doctor.appointment_detail', appointment_id=appointment_id))
+
+    patient = patient_model.get_by_id(appointment['PatientID'])
     patient_user = user_model.get_by_id(patient['UserID']) if patient else None
 
     if request.method == 'POST':
         report = request.form.get('report', '').strip()
+
         if not report:
             flash('Diagnosis report is required', 'danger')
             return render_template('doctor/create_diagnosis.html',
@@ -180,18 +172,19 @@ def create_diagnosis(appointment_id):
                                    format_time=format_time)
 
         diagnosis = diagnosis_model.create_diagnosis(
-            appointment_id, doctor['DoctorID'], appointment['PatientID'], report
+            appointment_id, doctor['DoctorID'], patient['PatientID'], report
         )
+
         appointment_model.update_status(appointment_id, 'Completed')
 
-        if patient_user:
-            sns_service.send_diagnosis_notification(
-                patient_user['Email'], patient_user.get('Phone', ''),
-                {'doctor_name': user['Name'], 'date': diagnosis['Date'], 'appointment_date': appointment['Date']}
-            )
+        sns_service.send_diagnosis_notification(
+            patient_user['Email'], patient_user.get('Phone', ''),
+            {'doctor_name': user['Name'], 'date': diagnosis['Date'], 'appointment_date': appointment['Date']}
+        )
+
         sns_service.send_doctor_notification(
             user['Email'], user.get('Phone', ''),
-            f'Diagnosis submitted for patient {patient_user["Name"] if patient_user else "Unknown"}',
+            f'Diagnosis submitted for patient {patient_user["Name"]}',
             'Diagnosis Submitted'
         )
 
@@ -213,10 +206,6 @@ def create_diagnosis(appointment_id):
 @doctor_required
 def patients_list():
     user = get_current_user()
-    if not user:
-        session.clear()
-        return redirect(url_for('auth.login'))
-
     doctor = user.get('doctor_profile')
     appointments = appointment_model.get_by_doctor(doctor['DoctorID']) if doctor else []
 
@@ -240,10 +229,6 @@ def patients_list():
 @doctor_required
 def patient_history(patient_id):
     user = get_current_user()
-    if not user:
-        session.clear()
-        return redirect(url_for('auth.login'))
-
     doctor = user.get('doctor_profile')
     patient = patient_model.get_by_id(patient_id)
 
@@ -253,12 +238,11 @@ def patient_history(patient_id):
 
     patient_user = user_model.get_by_id(patient['UserID'])
     diagnoses = diagnosis_model.get_by_patient(patient_id)
-    diagnoses.sort(key=lambda x: x.get('Date', ''), reverse=True)
+    diagnoses.sort(key=lambda x: x['Date'], reverse=True)
 
     appointments = appointment_model.get_by_patient(patient_id)
-    if doctor:
-        appointments = [a for a in appointments if a.get('DoctorID') == doctor['DoctorID']]
-    appointments.sort(key=lambda x: (x.get('Date', ''), x.get('Time', '')), reverse=True)
+    appointments = [a for a in appointments if a['DoctorID'] == doctor['DoctorID']]
+    appointments.sort(key=lambda x: (x['Date'], x['Time']), reverse=True)
 
     return render_template('doctor/patient_history.html',
                            user=user,
@@ -276,17 +260,13 @@ def patient_history(patient_id):
 @doctor_required
 def diagnoses():
     user = get_current_user()
-    if not user:
-        session.clear()
-        return redirect(url_for('auth.login'))
-
     doctor = user.get('doctor_profile')
     page = request.args.get('page', 1, type=int)
 
     all_diagnoses = []
     if doctor:
         all_diagnoses = diagnosis_model.get_by_doctor(doctor['DoctorID'])
-        all_diagnoses.sort(key=lambda x: x.get('Date', ''), reverse=True)
+        all_diagnoses.sort(key=lambda x: x['Date'], reverse=True)
 
     pagination = paginate_items(all_diagnoses, page)
 
@@ -302,19 +282,17 @@ def diagnoses():
 @login_required
 @doctor_required
 def schedule():
+    from datetime import datetime
     user = get_current_user()
-    if not user:
-        session.clear()
-        return redirect(url_for('auth.login'))
-
     doctor = user.get('doctor_profile')
     date = request.args.get('date', datetime.now().strftime('%Y-%m-%d'))
 
     appointments = []
     if doctor:
         appointments = appointment_model.get_by_doctor_date(doctor['DoctorID'], date)
-        appointments.sort(key=lambda x: x.get('Time', ''))
+        appointments.sort(key=lambda x: x['Time'])
 
+    from app.utils.helpers import generate_time_slots
     all_slots = generate_time_slots()
     booked_slots = {a['Time']: a for a in appointments}
 
@@ -334,10 +312,6 @@ def schedule():
 @doctor_required
 def notifications():
     user = get_current_user()
-    if not user:
-        session.clear()
-        return redirect(url_for('auth.login'))
-
     doctor = user.get('doctor_profile')
     page = request.args.get('page', 1, type=int)
     all_notifications = notification_model.get_by_user(user['UserID']) if user else []
@@ -355,4 +329,4 @@ def notifications():
 @doctor_required
 def mark_notification_read(notification_id):
     notification_model.mark_as_read(notification_id)
-    return redirect(url_for('doctor.notifications'))
+    return jsonify({'success': True})

@@ -4,56 +4,62 @@
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <div>
-        <h2 class="fw-bold mb-1"><i class="fas fa-file-medical text-primary me-2"></i>Issued Diagnosis Reports</h2>
-        <p class="text-secondary mb-0">Historical registry of all completed clinical evaluations</p>
-    </div>
+    <h2><i class="fas fa-file-medical me-2"></i>My Diagnosis Reports</h2>
 </div>
 
-<div class="card shadow-sm">
-    <div class="card-body p-0">
+<div class="card">
+    <div class="card-body">
         {% if diagnoses %}
         <div class="table-responsive">
-            <table class="table table-simple">
+            <table class="table table-hover">
                 <thead>
                     <tr>
                         <th>Date</th>
                         <th>Patient</th>
+                        <th>Appointment Date</th>
                         <th>Report Preview</th>
-                        <th class="text-end">Action</th>
+                        <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for diag in diagnoses %}
-                    {% set pat = patient_model.get_by_id(diag.PatientID) %}
-                    {% set pat_user = user_model.get_by_id(pat.UserID) if pat else None %}
                     <tr>
-                        <td class="fw-semibold">{{ format_date(diag.Date) }}</td>
-                        <td>{{ pat_user.Name if pat_user else 'Unknown Patient' }}</td>
-                        <td>{{ diag.Report|truncate(90) }}</td>
-                        <td class="text-end">
-                            <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#diagModal{{ diag.DiagnosisID }}">
-                                <i class="fas fa-eye me-1"></i>View Full Report
+                        <td>{{ format_date(diag.Date) }}</td>
+                        <td>
+                            {% set pat = patient_model.get_by_id(diag.PatientID) %}
+                            {% if pat %}
+                                {% set pat_user = user_model.get_by_id(pat.UserID) %}
+                                {{ pat_user.Name if pat_user else 'Unknown' }}
+                            {% else %}
+                                Unknown
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% set apt = appointment_model.get_by_id(diag.AppointmentID) %}
+                            {{ format_date(apt.Date) if apt else 'N/A' }}
+                        </td>
+                        <td>{{ diag.Report|truncate(100) }}</td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#diagModal{{ diag.DiagnosisID }}">
+                                <i class="fas fa-eye me-1"></i>View
                             </button>
                         </td>
                     </tr>
 
-                    <!-- Modal -->
-                    <div class="modal fade text-start" id="diagModal{{ diag.DiagnosisID }}" tabindex="-1">
+                    <div class="modal fade" id="diagModal{{ diag.DiagnosisID }}" tabindex="-1">
                         <div class="modal-dialog modal-lg">
                             <div class="modal-content">
                                 <div class="modal-header">
-                                    <h5 class="modal-title fw-bold">Diagnosis Report - {{ format_date(diag.Date) }}</h5>
+                                    <h5 class="modal-title">Diagnosis Report - {{ format_date(diag.Date) }}</h5>
                                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                                 </div>
-                                <div class="modal-body p-4">
-                                    <p class="mb-2"><strong>Patient:</strong> {{ pat_user.Name if pat_user else 'Unknown' }}</p>
+                                <div class="modal-body">
+                                    <p><strong>Patient:</strong> {{ pat_user.Name if pat_user else 'Unknown' }}</p>
+                                    <p><strong>Appointment Date:</strong> {{ format_date(apt.Date) if apt else 'N/A' }}</p>
                                     <hr>
-                                    <h6 class="fw-bold text-primary mb-2">Clinical Findings & Prescriptions:</h6>
-                                    <div class="p-3 bg-light rounded" style="white-space: pre-wrap; line-height: 1.6;">{{ diag.Report }}</div>
-                                </div>
-                                <div class="modal-footer">
-                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                    <div class="border p-3 bg-light rounded">
+                                        {{ diag.Report|replace('\n', '<br>')|safe }}
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -64,28 +70,31 @@
         </div>
 
         {% if pagination.pages > 1 %}
-        <div class="p-3 border-top">
-            <ul class="pagination justify-content-center mb-0">
+        <nav>
+            <ul class="pagination justify-content-center">
                 {% if pagination.has_prev %}
-                <li class="page-item"><a class="page-link" href="{{ url_for('doctor.diagnoses', page=pagination.page-1) }}">Previous</a></li>
+                <li class="page-item">
+                    <a class="page-link" href="{{ url_for('doctor.diagnoses', page=pagination.page-1) }}">Previous</a>
+                </li>
                 {% endif %}
-                {% for p in range(1, pagination.pages + 1) %}
+                {% for p in range(1, pagination.pages+1) %}
                 <li class="page-item {% if p == pagination.page %}active{% endif %}">
                     <a class="page-link" href="{{ url_for('doctor.diagnoses', page=p) }}">{{ p }}</a>
                 </li>
                 {% endfor %}
                 {% if pagination.has_next %}
-                <li class="page-item"><a class="page-link" href="{{ url_for('doctor.diagnoses', page=pagination.page+1) }}">Next</a></li>
+                <li class="page-item">
+                    <a class="page-link" href="{{ url_for('doctor.diagnoses', page=pagination.page+1) }}">Next</a>
+                </li>
                 {% endif %}
             </ul>
-        </div>
+        </nav>
         {% endif %}
-
         {% else %}
         <div class="text-center py-5">
-            <i class="fas fa-file-medical text-secondary fs-1 mb-2"></i>
-            <h5 class="fw-bold text-dark">No Diagnoses Found</h5>
-            <p class="text-secondary mb-0">You have not created any diagnosis reports yet.</p>
+            <i class="fas fa-file-medical fa-4x text-muted mb-3"></i>
+            <h4>No Diagnosis Reports</h4>
+            <p class="text-muted">You haven't created any diagnosis reports yet.</p>
         </div>
         {% endif %}
     </div>

@@ -15,16 +15,13 @@ patient_bp = Blueprint('patient', __name__, url_prefix='/patient')
 @patient_required
 def dashboard():
     user = get_current_user()
-    if not user:
-        session.clear()
-        return redirect(url_for('auth.login'))
     patient = user.get('patient_profile')
     appointments = []
     notifications = []
 
     if patient:
         appointments = appointment_model.get_by_patient(patient['PatientID'])
-        appointments.sort(key=lambda x: (x.get('Date', ''), x.get('Time', '')), reverse=True)
+        appointments.sort(key=lambda x: (x['Date'], x['Time']), reverse=True)
         notifications = notification_model.get_by_user(user['UserID'], limit=5)
 
     return render_template('patient/dashboard.html',
@@ -41,13 +38,13 @@ def dashboard():
 @patient_required
 def appointments():
     user = get_current_user()
-    patient = user.get('patient_profile') if user else None
+    patient = user.get('patient_profile')
     page = request.args.get('page', 1, type=int)
 
     all_appointments = []
     if patient:
         all_appointments = appointment_model.get_by_patient(patient['PatientID'])
-        all_appointments.sort(key=lambda x: (x.get('Date', ''), x.get('Time', '')), reverse=True)
+        all_appointments.sort(key=lambda x: (x['Date'], x['Time']), reverse=True)
 
     pagination = paginate_items(all_appointments, page)
 
@@ -65,7 +62,7 @@ def appointments():
 @patient_required
 def book_appointment():
     user = get_current_user()
-    patient = user.get('patient_profile') if user else None
+    patient = user.get('patient_profile')
     doctors = doctor_model.get_all_doctors()
 
     if request.method == 'POST':
@@ -133,10 +130,10 @@ def book_appointment():
 @patient_required
 def appointment_detail(appointment_id):
     user = get_current_user()
-    patient = user.get('patient_profile') if user else None
+    patient = user.get('patient_profile')
     appointment = appointment_model.get_by_id(appointment_id)
 
-    if not appointment or not patient or appointment.get('PatientID') != patient['PatientID']:
+    if not appointment or appointment['PatientID'] != patient['PatientID']:
         flash('Appointment not found', 'danger')
         return redirect(url_for('patient.appointments'))
 
@@ -160,14 +157,14 @@ def appointment_detail(appointment_id):
 @patient_required
 def cancel_appointment(appointment_id):
     user = get_current_user()
-    patient = user.get('patient_profile') if user else None
+    patient = user.get('patient_profile')
     appointment = appointment_model.get_by_id(appointment_id)
 
-    if not appointment or not patient or appointment.get('PatientID') != patient['PatientID']:
+    if not appointment or appointment['PatientID'] != patient['PatientID']:
         flash('Appointment not found', 'danger')
         return redirect(url_for('patient.appointments'))
 
-    if appointment.get('Status') in ['Completed', 'Cancelled']:
+    if appointment['Status'] in ['Completed', 'Cancelled']:
         flash('Cannot cancel this appointment', 'warning')
         return redirect(url_for('patient.appointment_detail', appointment_id=appointment_id))
 
@@ -192,12 +189,12 @@ def cancel_appointment(appointment_id):
 @patient_required
 def medical_history():
     user = get_current_user()
-    patient = user.get('patient_profile') if user else None
+    patient = user.get('patient_profile')
     diagnoses = []
 
     if patient:
         diagnoses = diagnosis_model.get_by_patient(patient['PatientID'])
-        diagnoses.sort(key=lambda x: x.get('Date', ''), reverse=True)
+        diagnoses.sort(key=lambda x: x['Date'], reverse=True)
 
     return render_template('patient/medical_history.html',
                            user=user,
@@ -212,7 +209,7 @@ def medical_history():
 def notifications():
     user = get_current_user()
     page = request.args.get('page', 1, type=int)
-    all_notifications = notification_model.get_by_user(user['UserID']) if user else []
+    all_notifications = notification_model.get_by_user(user['UserID'])
     pagination = paginate_items(all_notifications, page)
 
     return render_template('patient/notifications.html',
@@ -226,7 +223,7 @@ def notifications():
 @patient_required
 def mark_notification_read(notification_id):
     notification_model.mark_as_read(notification_id)
-    return redirect(url_for('patient.notifications'))
+    return jsonify({'success': True})
 
 
 @patient_bp.route('/doctors')
@@ -258,7 +255,7 @@ def api_available_slots():
         return jsonify({'slots': []})
 
     appointments = appointment_model.get_by_doctor_date(doctor_id, date)
-    booked_slots = [a['Time'] for a in appointments if a.get('Status') in ['Pending', 'Confirmed']]
+    booked_slots = [a['Time'] for a in appointments if a['Status'] in ['Pending', 'Confirmed']]
     available_slots = get_available_slots(doctor_id, date, booked_slots)
 
     return jsonify({'slots': available_slots})

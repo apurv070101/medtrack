@@ -43,7 +43,7 @@ def register():
             experience = request.form.get('experience', 0)
             try:
                 experience = int(experience)
-            except (ValueError, TypeError):
+            except ValueError:
                 experience = 0
             if specialization:
                 doctor_model.create_doctor(user['UserID'], specialization, experience)
@@ -52,7 +52,7 @@ def register():
             medical_history = request.form.get('medical_history', '').strip()
             try:
                 age = int(age)
-            except (ValueError, TypeError):
+            except ValueError:
                 age = 0
             patient_model.create_patient(user['UserID'], age, medical_history)
 
@@ -78,12 +78,6 @@ def login():
         session['email'] = user['Email']
         session['name'] = user['Name']
         session['role'] = user['Role']
-        session['user'] = {
-            'id': user['UserID'],
-            'name': user['Name'],
-            'email': user['Email'],
-            'role': user['Role']
-        }
         session.permanent = remember
 
         flash(f'Welcome back, {user["Name"]}!', 'success')
@@ -98,15 +92,14 @@ def login():
 
 @auth_bp.route('/logout')
 def logout():
-    session.pop('user', None)
     session.clear()
     flash('You have been logged out.', 'info')
-    return redirect(url_for('index'))
+    return redirect(url_for('auth.login'))
 
 
 @auth_bp.route('/dashboard')
 def dashboard():
-    if 'user_id' not in session and 'user' not in session:
+    if 'user_id' not in session:
         return redirect(url_for('auth.login'))
 
     role = session.get('role')
@@ -116,4 +109,5 @@ def dashboard():
         return redirect(url_for('doctor.dashboard'))
     elif role == 'Admin':
         return redirect(url_for('admin.dashboard'))
-    return redirect(url_for('index'))
+    else:
+        return redirect(url_for('auth.login'))

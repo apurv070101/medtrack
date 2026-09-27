@@ -4,69 +4,60 @@
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <div>
-        <h2 class="fw-bold mb-1"><i class="fas fa-file-medical text-primary me-2"></i>Medical Records & Diagnoses</h2>
-        <p class="text-secondary mb-0">Your encrypted electronic health records and clinical prescriptions</p>
-    </div>
+    <h2><i class="fas fa-file-medical me-2"></i>Medical History</h2>
 </div>
 
-<!-- Baseline Profile -->
-<div class="card p-4 shadow-sm mb-4">
-    <h5 class="fw-bold text-dark mb-2"><i class="fas fa-heart-pulse me-2 text-primary"></i>Baseline Health Profile</h5>
-    <p class="text-secondary small mb-3">Allergies, chronic conditions, and past surgical background:</p>
-    <div class="p-3 bg-light rounded text-dark" style="line-height: 1.6;">
-        {{ patient.MedicalHistory if patient and patient.MedicalHistory else 'No specific medical notes recorded in your baseline profile.' }}
-    </div>
-</div>
-
-<!-- Diagnoses Table -->
-<div class="card shadow-sm">
-    <div class="card-header">
-        <span class="fw-bold"><i class="fas fa-file-signature me-2 text-primary"></i>Clinical Diagnosis Reports</span>
-    </div>
-    <div class="card-body p-0">
+<div class="card">
+    <div class="card-body">
         {% if diagnoses %}
         <div class="table-responsive">
-            <table class="table table-simple">
+            <table class="table table-hover">
                 <thead>
                     <tr>
                         <th>Date</th>
-                        <th>Attending Doctor</th>
-                        <th>Report Summary</th>
-                        <th class="text-end">Action</th>
+                        <th>Doctor</th>
+                        <th>Appointment Date</th>
+                        <th>Diagnosis Report</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for diag in diagnoses %}
-                    {% set doc = doctor_model.get_by_id(diag.DoctorID) %}
-                    {% set doc_user = user_model.get_by_id(doc.UserID) if doc else None %}
                     <tr>
-                        <td class="fw-semibold">{{ format_date(diag.Date) }}</td>
-                        <td>Dr. {{ doc_user.Name if doc_user else 'Specialist' }}</td>
-                        <td>{{ diag.Report|truncate(80) }}</td>
-                        <td class="text-end">
-                            <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#diagModal{{ diag.DiagnosisID }}">
-                                <i class="fas fa-eye me-1"></i>View Full Report
+                        <td>{{ format_date(diag.Date) }}</td>
+                        <td>
+                            {% set doc = doctor_model.get_by_id(diag.DoctorID) %}
+                            {% if doc %}
+                                {% set doc_user = user_model.get_by_id(doc.UserID) %}
+                                Dr. {{ doc_user.Name if doc_user else 'Unknown' }}
+                            {% else %}
+                                Unknown
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% set apt = appointment_model.get_by_id(diag.AppointmentID) %}
+                            {{ format_date(apt.Date) if apt else 'N/A' }}
+                        </td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#diagnosisModal{{ diag.DiagnosisID }}">
+                                <i class="fas fa-eye me-1"></i>View Report
                             </button>
                         </td>
                     </tr>
 
-                    <!-- Modal -->
-                    <div class="modal fade" id="diagModal{{ diag.DiagnosisID }}" tabindex="-1">
+                    <div class="modal fade" id="diagnosisModal{{ diag.DiagnosisID }}" tabindex="-1">
                         <div class="modal-dialog modal-lg">
                             <div class="modal-content">
                                 <div class="modal-header">
-                                    <h5 class="modal-title fw-bold">Diagnosis Report - {{ format_date(diag.Date) }}</h5>
+                                    <h5 class="modal-title">Diagnosis Report - {{ format_date(diag.Date) }}</h5>
                                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                                 </div>
-                                <div class="modal-body p-4">
-                                    <p class="mb-2"><strong>Doctor:</strong> Dr. {{ doc_user.Name if doc_user else 'Specialist' }} ({{ doc.Specialization if doc else '' }})</p>
+                                <div class="modal-body">
+                                    <p><strong>Doctor:</strong> Dr. {{ doc_user.Name if doc_user else 'Unknown' }}</p>
+                                    <p><strong>Appointment Date:</strong> {{ format_date(apt.Date) if apt else 'N/A' }}</p>
                                     <hr>
-                                    <h6 class="fw-bold text-primary mb-2">Findings & Prescriptions:</h6>
-                                    <div class="p-3 bg-light rounded" style="white-space: pre-wrap; line-height: 1.6;">{{ diag.Report }}</div>
-                                </div>
-                                <div class="modal-footer">
-                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                    <div class="border p-3 bg-light rounded">
+                                        {{ diag.Report|replace('\n', '<br>')|safe }}
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -77,9 +68,9 @@
         </div>
         {% else %}
         <div class="text-center py-5">
-            <i class="fas fa-file-circle-check text-secondary fs-1 mb-2"></i>
-            <h5 class="fw-bold text-dark">No Diagnostic Reports On File</h5>
-            <p class="text-secondary mb-0">Clinical reports generated by your physician after appointments will appear here.</p>
+            <i class="fas fa-file-medical fa-4x text-muted mb-3"></i>
+            <h4>No Medical Records Found</h4>
+            <p class="text-muted">Your medical history will appear here after completed appointments with diagnoses.</p>
         </div>
         {% endif %}
     </div>

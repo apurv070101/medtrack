@@ -1,108 +1,110 @@
 {% extends "base/base.html" %}
 
-{% block title %}Create Account - MedTrack{% endblock %}
+{% block title %}Register - MedTrack{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center py-4">
-    <div class="col-md-8 col-lg-6">
-        <div class="card p-4 shadow-sm">
-            <div class="text-center mb-4">
-                <div class="d-inline-flex p-3 rounded-circle bg-primary-subtle text-primary mb-2">
-                    <i class="fas fa-user-plus fs-4"></i>
+<div class="row justify-content-center">
+    <div class="col-md-7">
+        <div class="card shadow">
+            <div class="card-body p-5">
+                <div class="text-center mb-4">
+                    <i class="fas fa-heartbeat fa-3x text-primary mb-3"></i>
+                    <h2 class="fw-bold">Create Account</h2>
+                    <p class="text-muted">Join MedTrack to manage your healthcare</p>
                 </div>
-                <h3 class="fw-bold">Create Account</h3>
-                <p class="text-secondary small">Register to start managing appointments and health records</p>
-            </div>
 
-            {% if errors %}
-                <div class="alert alert-danger py-2 small mb-3">
-                    <ul class="mb-0 ps-3">
-                        {% for err in errors.values() %}
-                            <li>{{ err }}</li>
-                        {% endfor %}
-                    </ul>
-                </div>
-            {% endif %}
-
-            <form method="POST">
-                <div class="row g-3">
-                    <div class="col-md-6">
-                        <label class="form-label">Full Name <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control" name="name" value="{{ form_data.get('name', '') }}" required placeholder="Jane Doe">
+                <form method="POST" novalidate>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="role" class="form-label">Register As</label>
+                            <select class="form-select" id="role" name="role" required onchange="toggleRoleFields()">
+                                <option value="Patient" {% if form_data.role == 'Patient' %}selected{% endif %}>Patient</option>
+                                <option value="Doctor" {% if form_data.role == 'Doctor' %}selected{% endif %}>Doctor</option>
+                            </select>
+                            {% if errors.role %}
+                                <div class="text-danger small">{{ errors.role }}</div>
+                            {% endif %}
+                        </div>
                     </div>
 
-                    <div class="col-md-6">
-                        <label class="form-label">Email Address <span class="text-danger">*</span></label>
-                        <input type="email" class="form-control" name="email" value="{{ form_data.get('email', '') }}" required placeholder="jane@example.com">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="name" class="form-label">Full Name</label>
+                            <input type="text" class="form-control {% if errors.name %}is-invalid{% endif %}" id="name" name="name" value="{{ form_data.name or '' }}" required>
+                            {% if errors.name %}
+                                <div class="invalid-feedback">{{ errors.name }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6">
+                            <label for="email" class="form-label">Email Address</label>
+                            <input type="email" class="form-control {% if errors.email %}is-invalid{% endif %}" id="email" name="email" value="{{ form_data.email or '' }}" required>
+                            {% if errors.email %}
+                                <div class="invalid-feedback">{{ errors.email }}</div>
+                            {% endif %}
+                        </div>
                     </div>
 
-                    <div class="col-md-6">
-                        <label class="form-label">Password <span class="text-danger">*</span></label>
-                        <input type="password" class="form-control" name="password" required placeholder="Min. 8 characters">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="phone" class="form-label">Phone Number</label>
+                            <input type="tel" class="form-control" id="phone" name="phone" value="{{ form_data.phone or '' }}" placeholder="+1 (555) 123-4567">
+                        </div>
                     </div>
 
-                    <div class="col-md-6">
-                        <label class="form-label">Confirm Password <span class="text-danger">*</span></label>
-                        <input type="password" class="form-control" name="confirm_password" required placeholder="Repeat password">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="password" class="form-label">Password</label>
+                            <input type="password" class="form-control {% if errors.password %}is-invalid{% endif %}" id="password" name="password" required minlength="8">
+                            {% if errors.password %}
+                                <div class="invalid-feedback">{{ errors.password }}</div>
+                            {% endif %}
+                            <div class="form-text">At least 8 characters</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="confirm_password" class="form-label">Confirm Password</label>
+                            <input type="password" class="form-control {% if errors.confirm_password %}is-invalid{% endif %}" id="confirm_password" name="confirm_password" required>
+                            {% if errors.confirm_password %}
+                                <div class="invalid-feedback">{{ errors.confirm_password }}</div>
+                            {% endif %}
+                        </div>
                     </div>
 
-                    <div class="col-md-6">
-                        <label class="form-label">Account Role <span class="text-danger">*</span></label>
-                        <select class="form-select" name="role" id="roleSelect" onchange="toggleRoleFields()">
-                            <option value="Patient" {% if form_data.get('role') == 'Patient' %}selected{% endif %}>Patient</option>
-                            <option value="Doctor" {% if form_data.get('role') == 'Doctor' %}selected{% endif %}>Doctor</option>
-                        </select>
-                    </div>
-
-                    <div class="col-md-6">
-                        <label class="form-label">Phone Number</label>
-                        <input type="tel" class="form-control" name="phone" value="{{ form_data.get('phone', '') }}" placeholder="+1-555-0100">
-                    </div>
-
-                    <!-- Doctor Specific Fields -->
-                    <div id="doctorFields" style="display: none;" class="col-12">
-                        <div class="p-3 bg-light rounded border">
-                            <h6 class="fw-bold text-primary mb-3"><i class="fas fa-stethoscope me-1"></i>Doctor Credentials</h6>
-                            <div class="row g-3">
-                                <div class="col-md-6">
-                                    <label class="form-label">Specialization</label>
-                                    <input type="text" class="form-control" name="specialization" value="{{ form_data.get('specialization', '') }}" placeholder="e.g. Cardiology, Neurology">
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="form-label">Years of Experience</label>
-                                    <input type="number" class="form-control" name="experience" min="0" value="{{ form_data.get('experience', 0) }}">
-                                </div>
+                    <div id="doctor-fields" class="mb-3" style="display: none;">
+                        <h5 class="mb-3"><i class="fas fa-user-md me-2"></i>Doctor Information</h5>
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="specialization" class="form-label">Specialization</label>
+                                <input type="text" class="form-control" id="specialization" name="specialization" value="{{ form_data.specialization or '' }}" placeholder="e.g., Cardiology, Dermatology">
+                            </div>
+                            <div class="col-md-6">
+                                <label for="experience" class="form-label">Years of Experience</label>
+                                <input type="number" class="form-control" id="experience" name="experience" value="{{ form_data.experience or 0 }}" min="0" max="50">
                             </div>
                         </div>
                     </div>
 
-                    <!-- Patient Specific Fields -->
-                    <div id="patientFields" class="col-12">
-                        <div class="p-3 bg-light rounded border">
-                            <h6 class="fw-bold text-primary mb-3"><i class="fas fa-user-injured me-1"></i>Patient Profile</h6>
-                            <div class="row g-3">
-                                <div class="col-md-4">
-                                    <label class="form-label">Age</label>
-                                    <input type="number" class="form-control" name="age" min="0" max="130" value="{{ form_data.get('age', 30) }}">
-                                </div>
-                                <div class="col-md-8">
-                                    <label class="form-label">Medical History / Allergies</label>
-                                    <textarea class="form-control" name="medical_history" rows="2" placeholder="e.g. Penicillin allergy, Asthma">{{ form_data.get('medical_history', '') }}</textarea>
-                                </div>
+                    <div id="patient-fields" class="mb-3">
+                        <h5 class="mb-3"><i class="fas fa-user-injured me-2"></i>Patient Information</h5>
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="age" class="form-label">Age</label>
+                                <input type="number" class="form-control" id="age" name="age" value="{{ form_data.age or '' }}" min="0" max="120" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="medical_history" class="form-label">Medical History (Optional)</label>
+                                <textarea class="form-control" id="medical_history" name="medical_history" rows="2" placeholder="Any existing conditions, allergies, or past surgeries">{{ form_data.medical_history or '' }}</textarea>
                             </div>
                         </div>
                     </div>
 
-                    <div class="col-12 mt-4">
-                        <button type="submit" class="btn btn-primary w-100 py-2 fw-semibold">
-                            <i class="fas fa-user-check me-2"></i>Register Account
-                        </button>
-                    </div>
-                </div>
-            </form>
+                    <button type="submit" class="btn btn-primary w-100 py-2">
+                        <i class="fas fa-user-plus me-2"></i>Create Account
+                    </button>
+                </form>
 
-            <div class="text-center mt-4 pt-3 border-top">
-                <p class="text-secondary small mb-0">Already have an account? <a href="{{ url_for('login') }}" class="text-primary fw-semibold">Sign in here</a></p>
+                <div class="text-center mt-4">
+                    <p class="text-muted mb-0">Already have an account? <a href="{{ url_for('auth.login') }}">Sign In</a></p>
+                </div>
             </div>
         </div>
     </div>
@@ -110,17 +112,19 @@
 
 <script>
 function toggleRoleFields() {
-    var role = document.getElementById('roleSelect').value;
-    var docFields = document.getElementById('doctorFields');
-    var patFields = document.getElementById('patientFields');
+    const role = document.getElementById('role').value;
+    const doctorFields = document.getElementById('doctor-fields');
+    const patientFields = document.getElementById('patient-fields');
+
     if (role === 'Doctor') {
-        docFields.style.display = 'block';
-        patFields.style.display = 'none';
+        doctorFields.style.display = 'block';
+        patientFields.style.display = 'none';
     } else {
-        docFields.style.display = 'none';
-        patFields.style.display = 'block';
+        doctorFields.style.display = 'none';
+        patientFields.style.display = 'block';
     }
 }
+
 document.addEventListener('DOMContentLoaded', toggleRoleFields);
 </script>
 {% endblock %}
